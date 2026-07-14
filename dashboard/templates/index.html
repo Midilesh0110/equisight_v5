@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EquiSight V5 – Live Dashboard</title>
+    <style>
+    body { 
+        font-family: 'Segoe UI', system-ui, sans-serif; 
+        margin: 2rem; 
+        background: #121212; 
+        color: #e0e0e0; 
+    }
+    h1, h2 { color: #ffffff; }
+    .card { 
+        background: #1e1e1e; 
+        padding: 1.5rem; 
+        margin: 1.5rem 0; 
+        border-radius: 8px; 
+        border: 1px solid #2d2d2d;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+    }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.5rem; }
+    th { color: #aaaaaa; font-weight: 600; border-bottom: 2px solid #3d3d3d; padding: 0.75rem 0.5rem; }
+    td { padding: 0.75rem 0.5rem; text-align: left; border-bottom: 1px solid #2d2d2d; }
+    tr:hover { background: #252525; }
+    #alpha-decay { color: #00e676; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>EquiSight V5 – Monitoring Dashboard</h1>
+
+    <div class="card">
+        <h2>Alpha Decay Monitor</h2>
+        <p>Average Days to Profit: <span id="alpha-decay">Loading...</span></p>
+    </div>
+
+    <div class="card">
+        <h2>Active Positions (T+1 to T+5)</h2>
+        <table id="active-positions-table">
+            <thead><tr><th>Ticker</th><th>Entry Date</th><th>Entry Price</th><th>Current Day</th><th>Allocated Capital</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Recent Trade Outcomes</h2>
+        <table id="trades-table">
+            <thead><tr><th>Ticker</th><th>Entry</th><th>Exit</th><th>Profit</th><th>Days Held</th><th>Reason</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadAlphaDecay() {
+            const res = await fetch('/api/alpha_decay');
+            const data = await res.json();
+            document.getElementById('alpha-decay').textContent = data.avg_days_to_profit.toFixed(2);
+        }
+
+        async function loadActivePositions() {
+            const res = await fetch('/api/active_positions');
+            const data = await res.json();
+            const tbody = document.querySelector('#active-positions-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(pos => {
+                const row = `<tr>
+                    <td>${pos.ticker}</td>
+                    <td>${pos.entry_date}</td>
+                    <td>${pos.entry_price}</td>
+                    <td>${pos.current_day}</td>
+                    <td>${pos.allocated_capital}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function loadRecentTrades() {
+            const res = await fetch('/api/recent_trades');
+            const data = await res.json();
+            const tbody = document.querySelector('#trades-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(trade => {
+                const row = `<tr>
+                    <td>${trade.ticker}</td>
+                    <td>${trade.entry_date}</td>
+                    <td>${trade.exit_date}</td>
+                    <td>${(trade.actual_profit * 100).toFixed(2)}%</td>
+                    <td>${trade.days_held}</td>
+                    <td>${trade.reason_for_exit}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // Initial load and auto-refresh every 30 seconds
+        loadAlphaDecay();
+        loadActivePositions();
+        loadRecentTrades();
+        setInterval(() => {
+            loadAlphaDecay();
+            loadActivePositions();
+            loadRecentTrades();
+        }, 30000);
+    </script>
+</body>
+</html>
