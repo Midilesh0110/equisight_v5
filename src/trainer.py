@@ -1,3 +1,4 @@
+# src/trainer.py
 import yfinance as yf
 import requests
 import numpy as np
@@ -6,8 +7,9 @@ import os
 import warnings
 from tqdm import tqdm
 import sys
+import pandas as pd
 
-# Anchor to project root
+# Make sure we can import src modules from the project root
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data_pipeline import generate_v5_features
@@ -17,65 +19,93 @@ from src.q_agent import ContextQAgent
 
 warnings.filterwarnings("ignore")
 
+
 def run_historical_training():
     print("=== EquiSight V5 Historical Training Gym (Walk-Forward HMMs) ===")
     
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
     
-    # ---- 1. Download full 5-year data ----
+    # ------------------------------------------------------------------
+    # 1. Download full 5-year data
+    # ------------------------------------------------------------------
     print("[INFO] Downloading 5 Years of Historical Data...")
-    tickers = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS"]
+    tickers = ["RELIANCE.NS", "TCS.NS", "INFY.NS","HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "ITC.NS", "LT.NS"]   # <-- your active universe
     
+    # Nifty proxy
     nifty_raw = yf.download("NIFTYBEES.NS", period="5y", progress=False, session=session)
+    if nifty_raw.empty:
+        print("[ERROR] NIFTYBEES.NS download failed.")
+        return
     macro_features = generate_v5_features(nifty_raw)
-    
+    print(f"[INFO] Macro features: {len(macro_features)} rows")
+
     ticker_data = {}
     for t in tickers:
-        df_raw = yf.download(t, period="5y", progress=False, session=session)
+        df_raw = yf.download(t, period="max", progress=False, session=session)
+        if df_raw.empty:
+            print(f"[ERROR] {t} download empty. Exiting.")
+            return
         ticker_data[t] = generate_v5_features(df_raw)
+        print(f"[INFO] {t}: {len(ticker_data[t])} rows after feature gen")
     
-    # Ensure all DataFrames share the same date range (intersection)
-    common_index = macro_features.index
-    for t in tickers:
-        common_index = common_index.intersection(ticker_data[t].index)
-    macro_features = macro_features.loc[common_index]
-    for t in tickers:
-        ticker_data[t] = ticker_data[t].loc[common_index]
+    # ------------------------------------------------------------------
+    # 2. Align all data to the macro index (robust common mask)
+    # ------------------------------------------------------------------
+    master_idx = macro_features.index
+    macro_aligned = macro_features  # keep as is
     
-    n_days = len(common_index)
-    if n_days < 1000:
-        print("[ERROR] Not enough data for meaningful training.")
+    # Reindex each ticker to master_idx; missing dates become NaN
+    ticker_aligned = {}
+    for t, df in ticker_data.items():
+        ticker_aligned[t] = df.reindex(master_idx)
+    
+    # Build a DataFrame of log_returns to find valid (non‑NaN) dates for all tickers
+    logret_df = pd.DataFrame({t: ticker_aligned[t]['log_returns'] for t in tickers})
+    valid_mask = logret_df.notna().all(axis=1)
+    common_days = valid_mask.sum()
+    print(f"[INFO] Common valid days (no missing ticker data): {common_days}")
+
+    # Apply the mask to all DataFrames
+    macro_aligned = macro_aligned.loc[valid_mask]
+    for t in tickers:
+        ticker_aligned[t] = ticker_aligned[t].loc[valid_mask]
+    
+    n_days = len(macro_aligned)
+    if n_days < 750:
+        print(f"[ERROR] Not enough data for meaningful training: {n_days} common days. Need at least 1000.")
+        print("Check if any ticker has large gaps in its history. You may need a shorter period or different tickers.")
         return
-    
-    # Split: last 252 days as hold-out test set, rest for training
+    print(f"[INFO] Total aligned days: {n_days}")
+
+    # Split: last 252 days as hold-out test set
     test_start = n_days - 252
-    train_macro = macro_features.iloc[:test_start]
-    test_macro = macro_features.iloc[test_start:]
-    train_ticker = {t: ticker_data[t].iloc[:test_start] for t in tickers}
-    test_ticker = {t: ticker_data[t].iloc[test_start:] for t in tickers}
+    train_macro = macro_aligned.iloc[:test_start]
+    test_macro  = macro_aligned.iloc[test_start:]
+    train_ticker = {t: ticker_aligned[t].iloc[:test_start] for t in tickers}
+    test_ticker  = {t: ticker_aligned[t].iloc[test_start:] for t in tickers}
     
-    print(f"[INFO] Training period: {train_macro.index[0].date()} to {train_macro.index[-1].date()}")
-    print(f"[INFO] Test period:     {test_macro.index[0].date()} to {test_macro.index[-1].date()}")
-    
-    # ---- 2. Walk-forward HMM training & regime labelling ----
-    # We will retrain the HMMs every 252 days using only data up to that point.
-    # The regime for a given day is predicted by the model that was most recently trained.
-    
-    retrain_freq = 252
-    initial_min_days = 504  # need at least 2 years before first retrain
-    
-    # Containers for regime labels (to be filled day-by-day)
+    print(f"[INFO] Training period: {train_macro.index[0].date()} to {train_macro.index[-1].date()} ({len(train_macro)} days)")
+    print(f"[INFO] Test period:     {test_macro.index[0].date()} to {test_macro.index[-1].date()} ({len(test_macro)} days)")
+
+    # ------------------------------------------------------------------
+    # 3. Walk-forward HMM training & regime labelling
+    # ------------------------------------------------------------------
+    # We will retrain HMMs every 252 trading days using only data up to that point.
+    retrain_freq = 126
+    initial_min_days = 504  # need at least 2 years for first reliable training
+
+    # Containers for regime labels (filled day-by-day)
     macro_regimes_train = np.full(len(train_macro), np.nan)
     local_regimes_train = {t: np.full(len(train_ticker[t]), np.nan) for t in tickers}
-    
-    last_retrain_idx = -1
+
     macro_model = None
     local_models = {t: None for t in tickers}
-    
-    # Helper to retrain HMMs using data up to index 'end_idx' (exclusive)
+    local_eng_instance = None
+
     def retrain_hmms(end_idx):
-        nonlocal macro_model, local_models
+        nonlocal macro_model, local_eng_instance
+        print(f"\n[RETRAIN] Training HMMs on data up to day {end_idx} ({train_macro.index[end_idx-1].date()})...")
         # Macro
         macro_breaker = MacroCircuitBreaker()
         macro_breaker.train(train_macro.iloc[:end_idx])
@@ -84,24 +114,16 @@ def run_historical_training():
         local_eng = LocalRegimeEngine()
         ticker_dict = {t: train_ticker[t].iloc[:end_idx] for t in tickers}
         local_eng.train_all_parallel(ticker_dict)
-        for t in tickers:
-            # load the model into memory for prediction
-            local_models[t] = local_eng  # we'll use its predict_ticker method
-        # Store the engine for prediction later
+        local_eng_instance = local_eng
         return macro_breaker, local_eng
-    
+
     # Walk forward through training days
-    local_eng_instance = None
     for i in tqdm(range(initial_min_days, len(train_macro)), desc="Walk-forward HMM labelling"):
-        # If we crossed a retrain boundary, retrain on all data up to i (i exclusive for training)
         if i % retrain_freq == 0 or i == initial_min_days:
-            print(f"\n[RETRAIN] Retraining HMMs using data up to day {i} ({train_macro.index[i-1].date()})...")
             macro_breaker, local_eng_instance = retrain_hmms(i)
-            last_retrain_idx = i
         
-        # Predict macro regime for day i using current model
-        # Use only data up to day i to predict (the model already knows only past data)
-        macro_pred = macro_breaker.predict(train_macro.iloc[[i]])  # single row
+        # Predict macro regime for day i
+        macro_pred = macro_breaker.predict(train_macro.iloc[[i]])
         macro_regimes_train[i] = int(np.array(macro_pred.iloc[0]).flatten()[0])
         
         # Predict local regimes for each ticker for day i
@@ -109,33 +131,38 @@ def run_historical_training():
             local_pred = local_eng_instance.predict_ticker(t, train_ticker[t].iloc[[i]])
             local_regimes_train[t][i] = int(np.array(local_pred.iloc[0]).flatten()[0])
     
-    # Now macro_regimes_train and local_regimes_train are filled from day 504 onward.
-    # We'll slice off the first 504 days because we don't have reliable regime labels there.
+    # Slice off the initial burn-in period
     start_train = initial_min_days
     train_macro_trim = train_macro.iloc[start_train:]
     macro_regimes_trim = macro_regimes_train[start_train:]
     train_ticker_trim = {t: train_ticker[t].iloc[start_train:] for t in tickers}
     local_regimes_trim = {t: local_regimes_train[t][start_train:] for t in tickers}
-    
-    # ---- 3. Q-Learning on the training period ----
+
+    # ------------------------------------------------------------------
+    # 4. Q-Learning on the walk-forward labelled data
+    # ------------------------------------------------------------------
     agent = ContextQAgent(epsilon=1.0)
     epsilon_decay = 0.9995
     min_epsilon = 0.05
-    
+
     print("\n[INFO] Q-Learning on Walk-Forward Labelled Data...")
     for ticker in tickers:
         print(f"\nTraining agent on {ticker}...")
         df = train_ticker_trim[ticker]
         local_states = local_regimes_trim[ticker]
-        # local_states may contain NaN for days we couldn't predict; skip those
+        
+                # Remove any remaining NaN rows
         valid_mask = ~np.isnan(local_states)
         df = df[valid_mask]
         local_states = local_states[valid_mask]
         
-        # Re-index to align with macro
+        # ADD THIS LINE to make local_states index-aware
+        local_states = pd.Series(local_states, index=df.index)
+        
+        # Align with macro index
         common = df.index.intersection(train_macro_trim.index)
         df = df.loc[common]
-        local_states = local_states[common]
+        local_states = local_states[common]          # now works as a Series
         macro_states = pd.Series(macro_regimes_trim, index=train_macro_trim.index).loc[common]
         
         for i in tqdm(range(len(df) - 1), desc=f"{ticker} Q-learning"):
@@ -171,17 +198,17 @@ def run_historical_training():
     os.makedirs("database/models", exist_ok=True)
     with open("database/models/q_table.json", "w") as f:
         json.dump(agent.q_table, f, indent=4)
-    print(f"\n[SUCCESS] Q-table saved. States mastered: {len(agent.q_table)}")
+    print(f"\n[SUCCESS] Q-table saved to database/models/q_table.json")
+    print(f"[METRIC] Total Unique Market States Mastered: {len(agent.q_table)}")
     
-    # ---- 4. Test on hold-out period (pure exploitation) ----
-    print("\n[INFO] Testing trained agent on the last year (out-of-sample)...")
-    agent.epsilon = 0.0  # no exploration
+    # ------------------------------------------------------------------
+    # 5. Out-of-sample test on the last year
+    # ------------------------------------------------------------------
+    print("\n[INFO] Testing trained agent on the hold-out year (out-of-sample)...")
+    agent.epsilon = 0.0  # pure exploitation
     
-    # For the test period, we need to simulate HMM regime predictions using the
-    # model trained on all training data (which we already have from the last retrain).
-    # Actually, we can use the final models (macro_breaker, local_eng_instance) to predict
-    # the test data. That's acceptable because those models were trained on data up to
-    # the end of training, and the test period is after that — still no future info.
+    # Use the last trained models (from the end of training period) to predict test data
+    # These models saw data only up to the end of training, so no future info.
     test_macro_regimes = macro_breaker.predict(test_macro)
     test_macro_regimes = [int(np.array(x).flatten()[0]) for x in test_macro_regimes]
     
@@ -210,9 +237,10 @@ def run_historical_training():
             total_reward += reward
             if action == 1:
                 trades += 1
-    avg_reward = total_reward / (len(test_macro) * len(tickers)) if len(test_macro) > 0 else 0
+    avg_reward = total_reward / (len(test_macro) * len(tickers))
     print(f"[METRIC] Out-of-sample: Total reward {total_reward:.4f}, Trades executed {trades}, Avg reward per step {avg_reward:.6f}")
     print("[INFO] If avg reward is positive after friction, the edge may be real.")
+
 
 if __name__ == "__main__":
     run_historical_training()
