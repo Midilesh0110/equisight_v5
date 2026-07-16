@@ -36,8 +36,16 @@ class PairsAlphaEngine:
         log_b = np.log(prices_b)
         X = log_b.iloc[-pair_cfg.hedge_window:].values.reshape(-1, 1)
         y = log_a.iloc[-pair_cfg.hedge_window:].values
+
+        # Drop rows with NaN in either X or y
+        mask = ~np.isnan(X.flatten()) & ~np.isnan(y)
+        if mask.sum() < 10:          # need minimum data points
+            return None
+        X_clean = X[mask].reshape(-1, 1)
+        y_clean = y[mask]
+
         model = LinearRegression()
-        model.fit(X, y)
+        model.fit(X_clean, y_clean)
         return float(model.coef_[0])
 
     def compute_signal(self, pair_cfg: PairConfig, raw_data: Dict[str, pd.DataFrame],

@@ -79,7 +79,7 @@ def run_production_loop():
         if pair_name in existing_pairs:
             continue
         
-        # Check if either leg already has an open position (simplified)
+        # Check if either leg already has an open position
         a_open = pair_cfg.stock_a in (active_positions['ticker'].tolist() if not active_positions.empty else [])
         b_open = pair_cfg.stock_b in (active_positions['ticker'].tolist() if not active_positions.empty else [])
         if a_open or b_open:
@@ -88,10 +88,15 @@ def run_production_loop():
         if pair_cfg.stock_a not in raw_data or pair_cfg.stock_b not in raw_data:
             continue
         
-        # Get latest close date
         latest_date = raw_data[pair_cfg.stock_a].index[-1]
-        signal = alpha_engine.compute_signal(pair_cfg, raw_data, latest_date)
+        try:
+            signal = alpha_engine.compute_signal(pair_cfg, raw_data, latest_date)
+        except Exception as e:
+            logger.warning(f"{pair_name}: signal computation failed – {e}")
+            continue
+        
         if signal:
+            # ... rest unchanged (exposure cap, logging, etc.)
             # Apply exposure cap
             if current_exposure + POSITION_SIZE > MAX_TOTAL_EXPOSURE:
                 logger.info(f"{pair_name}: signal suppressed (exposure cap)")
