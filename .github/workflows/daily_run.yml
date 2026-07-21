@@ -1,37 +1,41 @@
-name: EquiSight V5 Daily Run
+name: Equisight V5 Live Engine
 
 on:
   schedule:
-    - cron: '30 12 * * 1-5'      # 6:00 PM IST, Mon–Fri
-  workflow_dispatch:
-
-permissions:
-  contents: write                # allow the job to push commits
+    # Runs at 16:00 UTC (9:30 PM IST) Monday-Friday as an example
+    - cron: '0 16 * * 1-5'
+  workflow_dispatch: # Allows you to trigger it manually for testing
 
 jobs:
-  run_model:
+  trade:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    permissions:
+      # CRITICAL: The action needs permission to push code back to the repo
+      contents: write 
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          # Required if you want the action to trigger other workflows, 
+          # otherwise the default GITHUB_TOKEN works fine.
+          fetch-depth: 0 
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.12' 
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy yfinance scikit-learn requests
 
-      - name: Run daily orchestrator
+      - name: Run V5 Live Engine
         run: python main.py
 
-      - name: Commit updated database and logs
-        run: |
-          git config user.name "EquiSight Bot"
-          git config user.email "bot@equisight.local"
-          git add database/equisight_v5.db logs/
-          git diff --staged --quiet || git commit -m "🤖 Daily update $(date +'%Y-%m-%d')"
-          git push
+      - name: Commit Database State
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 System: Update Equisight execution database"
+          file_pattern: 'database/equisight_v5.db'
