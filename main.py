@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 import logging
 import os
+import sqlite3
 os.makedirs("logs", exist_ok=True)
 os.makedirs("database", exist_ok=True)
 
@@ -126,6 +127,20 @@ def run_production_loop():
             current_exposure += POSITION_SIZE
     
     logger.info("Daily run complete.")
+    # --- CSV EXPORT BLOCK ---
+    logger.info("Exporting database to human-readable CSVs...")
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            # Export currently open trades
+            active = pd.read_sql_query("SELECT * FROM active_positions", conn)
+            active.to_csv("active_positions.csv", index=False)
+            
+            # Export closed trades and historical performance
+            history = pd.read_sql_query("SELECT * FROM trade_outcomes", conn)
+            history.to_csv("trade_history.csv", index=False)
+        logger.info("CSV exports successful.")
+    except Exception as e:
+        logger.error(f"CSV export failed: {e}")
 
 if __name__ == "__main__":
     run_production_loop()

@@ -37,5 +37,6 @@ jobs:
       - name: Commit Database State
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 System: Update Equisight execution database"
-          file_pattern: 'database/equisight_v5.db'
+          commit_message: "🤖 System: Update DB and CSV metrics"
+          # THIS IS THE CRITICAL CHANGE: Tell the bot to grab the CSVs too!
+          file_pattern: 'database/equisight_v5.db *.csv'
