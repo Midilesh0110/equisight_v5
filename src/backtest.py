@@ -18,10 +18,25 @@ from src.alpha_engine import PairsAlphaEngine, PairConfig
 warnings.filterwarnings("ignore")
 
 PAIRS = [
+    # IT Sector
     PairConfig("TCS.NS", "INFY.NS"),
-    PairConfig("ICICIBANK.NS", "SBIN.NS"),
-    PairConfig("RELIANCE.NS", "HINDUNILVR.NS"),
-    PairConfig("KOTAKBANK.NS", "BAJFINANCE.NS")
+    PairConfig("HCLTECH.NS", "TECHM.NS"),
+    
+    # Banking & Financials
+    PairConfig("HDFCBANK.NS", "ICICIBANK.NS"),
+    PairConfig("SBIN.NS", "KOTAKBANK.NS"),
+    PairConfig("AXISBANK.NS", "INDUSINDBK.NS"),
+    
+    # FMCG & Consumer
+    PairConfig("ITC.NS", "HINDUNILVR.NS"),
+    PairConfig("ASIANPAINT.NS", "BRITANNIA.NS"),
+    
+    # Auto
+    PairConfig("TATAMOTORS.NS", "M&M.NS"),
+    PairConfig("MARUTI.NS", "HEROMOTOCO.NS"),
+    
+    # Metals & Energy
+    PairConfig("TATASTEEL.NS", "JSWSTEEL.NS")
 ]
 MACRO_INDEX = "NIFTYBEES.NS"
 DB_PATH = "database/equisight_v5.db"

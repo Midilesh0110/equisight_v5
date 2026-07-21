@@ -2,29 +2,26 @@ name: Equisight V5 Live Engine
 
 on:
   schedule:
-    # Runs at 16:00 UTC (9:30 PM IST) Monday-Friday as an example
-    - cron: '0 16 * * 1-5'
-  workflow_dispatch: # Allows you to trigger it manually for testing
+    # Runs at 12:30 UTC (6:00 PM IST) Monday to Friday
+    - cron: '30 12 * * 1-5'
+  workflow_dispatch:   # allows manual run from GitHub UI
 
 jobs:
   trade:
     runs-on: ubuntu-latest
     permissions:
-      # CRITICAL: The action needs permission to push code back to the repo
-      contents: write 
+      contents: write   # required for pushing commits
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          # Required if you want the action to trigger other workflows, 
-          # otherwise the default GITHUB_TOKEN works fine.
-          fetch-depth: 0 
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: '3.12'
 
       - name: Install Dependencies
         run: |
@@ -34,9 +31,8 @@ jobs:
       - name: Run V5 Live Engine
         run: python main.py
 
-      - name: Commit Database State
+      - name: Commit Database & CSV Outputs
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 System: Update DB and CSV metrics"
-          # THIS IS THE CRITICAL CHANGE: Tell the bot to grab the CSVs too!
+          commit_message: "🤖 Daily update – DB and CSVs"
           file_pattern: 'database/equisight_v5.db *.csv'
