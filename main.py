@@ -104,8 +104,14 @@ def run_production_loop():
             
             # In live mode, we'd open both legs via the broker. For paper trading,
             # we log the pair as a single combined position.
-            open_a = float(raw_data[pair_cfg.stock_a].loc[latest_date]['Close'])
-            open_b = float(raw_data[pair_cfg.stock_b].loc[latest_date]['Close'])
+            
+            # Safely extract scalar values even if yfinance returns a Series
+            close_a = raw_data[pair_cfg.stock_a].loc[latest_date]['Close']
+            close_b = raw_data[pair_cfg.stock_b].loc[latest_date]['Close']
+            
+            open_a = float(close_a.iloc[0]) if isinstance(close_a, pd.Series) else float(close_a)
+            open_b = float(close_b.iloc[0]) if isinstance(close_b, pd.Series) else float(close_b)
+            
             allocated = 1_000_000 * POSITION_SIZE
             
             logger.info(f"{pair_name}: {signal['action']} at Z={signal['z_score']:.2f}, allocating ₹{allocated:.2f}")
