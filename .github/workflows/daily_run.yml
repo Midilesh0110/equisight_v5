@@ -10,29 +10,29 @@ jobs:
   trade:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # required for pushing commits
+      contents: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
+          cache: 'pip'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas numpy yfinance scikit-learn requests
+          pip install -r requirements.txt
 
-      - name: Run V5 Live Engine
+      - name: Run EquiSight Production Engine
         run: python main.py
 
-      - name: Commit Database & CSV Outputs
-        uses: stefanzweifel/git-auto-commit-action@v5
+      # Pin third-party git-auto-commit-action to an immutable commit SHA
+      - name: Commit Execution State & CSV Metrics
+        uses: stefanzweifel/git-auto-commit-action@8621497c8210798acd895104437f1136be1042fb # v5.0.1
         with:
-          commit_message: "🤖 Daily update – DB and CSVs"
+          commit_message: "🤖 System: Synchronize DB and Daily CSV Metrics"
           file_pattern: 'database/equisight_v5.db *.csv'
