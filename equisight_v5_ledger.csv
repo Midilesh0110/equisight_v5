@@ -1,0 +1,5 @@
+Date,Time,Pair,Close_A,Close_B,Master_Signal,Z_Score,Beta,Reason
+2026-09-16,05:33:42,TCS.NS-INFY.NS,2226.5,1075.6,HOLD,N/A,N/A,Spread within normal bounds
+2026-09-16,05:33:42,ICICIBANK.NS-SBIN.NS,1352.4,986.3,HOLD,-2.057,0.387,Pair already active in portfolio
+2026-09-16,05:33:42,RELIANCE.NS-HINDUNILVR.NS,1254.1,1966.4,HOLD,-1.536,0.149,Pair already active in portfolio
+2026-09-16,05:33:42,KOTAKBANK.NS-BAJFINANCE.NS,412.75,1016.5,HOLD,N/A,N/A,Spread within normal bounds
