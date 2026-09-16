@@ -1,0 +1,5 @@
+Date,Time,Pair,Close_A,Close_B,Master_Signal,Z_Score,Beta,Reason
+2026-09-16,05:26:09,TCS.NS-INFY.NS,2228.1,1076.0,HOLD,N/A,N/A,Spread within normal bounds
+2026-09-16,05:26:09,ICICIBANK.NS-SBIN.NS,1350.6,985.2,BUY_SPREAD,-2.104,0.389,Statistical edge confirmed (Z=-2.10)
+2026-09-16,05:26:09,RELIANCE.NS-HINDUNILVR.NS,1252.3,1956.1,BUY_SPREAD,-1.567,0.151,Statistical edge confirmed (Z=-1.57)
+2026-09-16,05:26:09,KOTAKBANK.NS-BAJFINANCE.NS,412.25,1015.1,HOLD,N/A,N/A,Spread within normal bounds
