@@ -31,3 +31,7 @@ Date,Time,Pair,Close_A,Close_B,Master_Signal,Z_Score,Beta,Reason
 2026-09-24,17:28:15,ICICIBANK.NS-SBIN.NS,1334.5,978.5,HOLD,N/A,N/A,Spread within normal bounds
 2026-09-24,17:28:15,RELIANCE.NS-HINDUNILVR.NS,1219.2,1933.5,HOLD,-1.612,0.276,Pair already active in portfolio
 2026-09-24,17:28:15,KOTAKBANK.NS-BAJFINANCE.NS,405.0,982.0,BUY_SPREAD,-2.327,0.026,Statistical edge confirmed (Z=-2.33)
+2026-09-25,17:28:14,TCS.NS-INFY.NS,2082.0,1000.2,HOLD,N/A,N/A,Spread within normal bounds
+2026-09-25,17:28:14,ICICIBANK.NS-SBIN.NS,1326.8,983.0,HOLD,N/A,N/A,Spread within normal bounds
+2026-09-25,17:28:14,RELIANCE.NS-HINDUNILVR.NS,1226.0,1942.9,HOLD,N/A,N/A,Spread within normal bounds
+2026-09-25,17:28:14,KOTAKBANK.NS-BAJFINANCE.NS,404.0,996.9,HOLD,-2.13,0.013,Pair already active in portfolio
