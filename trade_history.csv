@@ -1,3 +1,4 @@
 id,ticker,entry_date,exit_date,actual_profit,days_held,reason_for_exit
 1,ICICIBANK.NS-SBIN.NS,2026-09-16,2026-09-25,-556.55,10,Time Stop (Day 10)
 2,RELIANCE.NS-HINDUNILVR.NS,2026-09-16,2026-09-25,-615.57,10,Time Stop (Day 10)
+3,KOTAKBANK.NS-BAJFINANCE.NS,2026-09-24,2026-10-09,504.69,10,Time Stop (Day 10)
