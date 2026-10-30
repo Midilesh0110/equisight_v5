@@ -8,3 +8,4 @@ id,ticker,entry_date,exit_date,actual_profit,days_held,reason_for_exit
 7,KOTAKBANK.NS-BAJFINANCE.NS,2026-10-09,2026-10-23,-1482.87,10,Time Stop (Day 10)
 8,TCS.NS-INFY.NS,2026-10-14,2026-10-28,2803.65,10,Time Stop (Day 10)
 9,RELIANCE.NS-HINDUNILVR.NS,2026-10-14,2026-10-28,-1568.35,10,Time Stop (Day 10)
+10,ICICIBANK.NS-SBIN.NS,2026-10-15,2026-10-30,222.4,10,Time Stop (Day 10)
